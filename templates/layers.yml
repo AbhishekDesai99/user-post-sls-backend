@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  user-post-sls-backend
+  NESTED STACK for,
+  -> LambdaLayers
+
+Parameters:
+  Stage:
+    Type: String
+  ParentStackName:
+    Type: String
+
+Resources:
+  CommonLambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Join ["", [ { Ref: ParentStackName }, '-common-layer' ]]
+      Description: Dependencies for lambda
+      ContentUri: ../layers/common
+      CompatibleRuntimes:
+        - nodejs16.x
+        - nodejs18.x
+        - nodejs20.x
+      LicenseInfo: 'MIT'
+      RetentionPolicy: Retain
+
+Outputs:
+  CommonLayer:
+    Value: !Ref CommonLambdaLayer

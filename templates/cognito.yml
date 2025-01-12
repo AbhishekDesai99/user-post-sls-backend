@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  user-post-sls-backend
+  NESTED STACK for,
+   -> auth
+
+Parameters:
+  Stage:
+    Type: String
+  ParentStackName:
+    Type: String
+  UserPoolDomainName:
+    Type: String
+  SesVerifiedEmailAddress:
+    Type: String
+
+Resources:
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UsernameAttributes:
+        - email
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      EmailConfiguration: 
+        EmailSendingAccount: DEVELOPER
+        SourceArn: !Join ["", ["arn:aws:ses:", { Ref: AWS::Region }, ":", {Ref: AWS::AccountId }, ":identity/", { Ref: SesVerifiedEmailAddress }]]
+      MfaConfiguration: "OFF"
+      AutoVerifiedAttributes:
+        - email
+      Policies: 
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+          TemporaryPasswordValidityDays: 30
+      UsernameConfiguration: 
+        CaseSensitive: false
+      UserPoolName: !Join ["", [{ Ref: ParentStackName }, "-auth"]]
+      
+  CognitoUserPoolAppClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      AccessTokenValidity: 1
+      AllowedOAuthFlows: 
+        - implicit
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes: 
+        - phone
+        - email
+        - openid
+        - profile
+        - aws.cognito.signin.user.admin
+      CallbackURLs: 
+        - http://localhost:3000/
+        - http://localhost:3000/signout
+      ClientName: !Join ["", [{ Ref: ParentStackName }, "-admin-web-client" ]]
+      DefaultRedirectURI: http://localhost:3000/
+      ExplicitAuthFlows: 
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_CUSTOM_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+      GenerateSecret: false
+      IdTokenValidity: 1
+      LogoutURLs: 
+        - http://localhost:3000/signout
+      PreventUserExistenceErrors: ENABLED
+      # ReadAttributes: 
+      #   - String
+      RefreshTokenValidity: 30
+      SupportedIdentityProviders: 
+        - COGNITO
+      TokenValidityUnits: 
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      UserPoolId: !Ref CognitoUserPool
+  
+  CognitoAuthDomainAdmins:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Join ['-', [{ Ref: UserPoolDomainName }, { Ref: Stage }]]
+      UserPoolId: !Ref CognitoUserPool
+
+Outputs:
+  UserPoolID:
+    Description: ID of the UserPool
+    Value: !Ref CognitoUserPool
+  UserPoolProviderURL:
+    Description: ID of the UserPool
+    Value: !GetAtt CognitoUserPool.ProviderURL
+  UserPoolAppClientID:
+    Description: ID of the UserPool AppClient
+    Value: !Ref CognitoUserPoolAppClient

@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  user-post-sls-backend
+  
+Parameters:
+  Stage:
+    Type: String
+  UserPoolDomainName:
+    Type: String
+  SesVerifiedEmailAddress:
+    Type: String
+
+Resources:
+  LambdaLayers:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: templates/layers.yml
+      Parameters:
+        Stage: !Ref Stage
+        ParentStackName: !Ref AWS::StackName
+
+  DynamodbResources:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: templates/dynamodb.yml
+      Parameters:
+        Stage: !Ref Stage
+        ParentStackName: !Ref AWS::StackName
+
+  CognitoResources:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: templates/cognito.yml
+      Parameters:
+        Stage: !Ref Stage
+        ParentStackName: !Ref AWS::StackName
+        UserPoolDomainName: !Ref UserPoolDomainName
+        SesVerifiedEmailAddress: !Ref SesVerifiedEmailAddress
+
+  APIResources:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: templates/apis.yml
+      Parameters:
+        Stage: !Ref Stage
+        ParentStackName: !Ref AWS::StackName
+        CommonLayer: !GetAtt LambdaLayers.Outputs.CommonLayer
+        UserPoolID: !GetAtt CognitoResources.Outputs.UserPoolID
+        UserPoolProviderURL: !GetAtt CognitoResources.Outputs.UserPoolProviderURL
+        UserPoolAppClientID: !GetAtt CognitoResources.Outputs.UserPoolAppClientID
+        MasterTable: !GetAtt DynamodbResources.Outputs.MasterTable

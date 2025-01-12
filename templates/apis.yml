@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  user-post-sls-backend
+  NESTED STACK for,
+   -> APIs
+
+Parameters:
+  Stage:
+    Type: String
+  ParentStackName:
+    Type: String
+  CommonLayer:
+    Type: String
+  UserPoolID:
+    Type: String
+  UserPoolProviderURL:
+    Type: String
+  UserPoolAppClientID:
+    Type: String
+  MasterTable:
+    Type: String
+
+Globals:
+  Function:
+    Layers:
+      - !Ref CommonLayer
+    Environment:
+      Variables:
+        MASTER_TABLE: !Ref MasterTable
+
+Resources:
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: !Join ["", [{ Ref: ParentStackName }, "-api-gateway"]]
+      StageName: !Ref Stage
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - "*"
+        AllowMethods:
+          - "*"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            AuthorizationScopes:
+              - aws.cognito.signin.user.admin
+              - email
+              - openid
+              - phone
+              - profile
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              Audience:
+                - !Ref UserPoolID
+                - !Ref UserPoolProviderURL
+              Issuer: !Ref UserPoolAppClientID
+  
+  GetProfile:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Join ["", [{ Ref: ParentStackName }, "-get-profile"]]
+      CodeUri: ../dist/controllers/user
+      Handler: get-profile.handler
+      Runtime: nodejs20.x
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource: "*"
+      Events:
+        GetProfileRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /profile
+            Method: GET
